@@ -124,6 +124,7 @@ class YouTubeDownloaderApp:
         self.queue = queue.Queue()
         self.init_ui()
         self.auto_detect_ffmpeg()
+        self.progress_window = None  # Initialize progress window variable
 
     def init_ui(self):
         style = tb.Style(theme=self.settings_manager.theme)
@@ -205,6 +206,7 @@ class YouTubeDownloaderApp:
     def download_content_async(self, download_type):
         self._stop_event.clear()
         self.cancel_button.config(state=tk.NORMAL)
+        self.show_progress_window()  # Show progress window when download starts
         threading.Thread(target=self.download_content, args=(download_type,), daemon=True).start()
         self.root.after(100, self.process_queue)
     def download_content(self, download_type):
@@ -290,15 +292,29 @@ class YouTubeDownloaderApp:
                 logging.error(f"Error converting percent to float: {percent_str} - {str(e)}")
 
     def update_progress(self, percent):
-        self.progress['value'] = percent
-        self.status_label.config(text=f"Downloading... {percent:.2f}%")
+        if self.progress_window:
+            self.progress_bar['value'] = percent
+            self.progress_label.config(text=f"Downloading... {percent:.2f}%")
 
     def download_complete(self):
-        self.progress['value'] = 100
-        self.status_label.config(text="Download complete!")
+        if self.progress_window:
+            self.progress_bar['value'] = 100
+            self.progress_label.config(text="Download complete!")
+            self.progress_window.after(2000, self.progress_window.destroy)  # Close progress window after 2 seconds
+
+    def show_progress_window(self):
+        self.progress_window = tk.Toplevel(self.root)
+        self.progress_window.title("Download Progress")
+        self.progress_window.geometry("300x100")
+        self.progress_label = ttk.Label(self.progress_window, text="Downloading... 0%")
+        self.progress_label.pack(pady=10)
+        self.progress_bar = ttk.Progressbar(self.progress_window, orient="horizontal", length=200, mode="determinate")
+        self.progress_bar.pack(pady=10)
 
     def stop_download(self):
         self._stop_event.set()
+        if self.progress_window:
+            self.progress_window.destroy()
 
     def switch_language(self, lang):
         self.current_language = lang
